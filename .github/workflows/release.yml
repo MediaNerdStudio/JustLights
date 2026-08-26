@@ -58,7 +58,7 @@ jobs:
           host: ${{ matrix.host }}
           target: desktop
           arch: ${{ matrix.arch }}
-          modules: "qtwebengine qtpositioning qthttpserver qtwebsockets qtserialport"
+          modules: "qtwebengine qtwebchannel qtpositioning qthttpserver qtwebsockets qtserialport"
           cache: true
 
       - name: Normalize Qt environment
