@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  QT_VERSION: "6.8.3"
+  QT_VERSION: "6.7.3"
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
             arch: gcc_64
           - name: macOS x64
             os: macos
-            runner: macos-13
+            runner: macos-15-intel
             host: mac
             arch: clang_64
 
@@ -52,16 +52,13 @@ jobs:
           sudo apt-get install -y ninja-build libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libfuse2
 
       - name: Install Qt
-        uses: jdpurcell/install-qt-action@v5
+        uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
           host: ${{ matrix.host }}
           target: desktop
           arch: ${{ matrix.arch }}
-          modules: "qtpositioning qthttpserver qtwebsockets qtserialport"
-          extensions: "qtwebengine"
-          use-naqt: true
-          setup-python: false
+          modules: "qtwebengine qtpositioning qthttpserver qtwebsockets qtserialport"
           cache: true
 
       - name: Build web interface
