@@ -29,7 +29,7 @@ jobs:
             os: linux
             runner: ubuntu-22.04
             host: linux
-            arch: gcc_64
+            arch: linux_gcc_64
           - name: macOS x64
             os: macos
             runner: macos-15-intel
@@ -61,6 +61,17 @@ jobs:
           modules: "qtwebengine qtpositioning qthttpserver qtwebsockets qtserialport"
           cache: true
 
+      - name: Normalize Qt environment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path')
+            let root = process.env.QT_ROOT_DIR
+            if (root && /[\\/]bin[\\/]qmake[^\\/]*$/i.test(root)) root = path.resolve(path.dirname(root), '..')
+            core.exportVariable('QT_ROOT_DIR', root)
+            core.exportVariable('CMAKE_PREFIX_PATH', root)
+            core.addPath(path.join(root, 'bin'))
+
       - name: Build web interface
         working-directory: ui
         run: |
@@ -69,11 +80,11 @@ jobs:
 
       - name: Configure Windows
         if: matrix.os == 'windows'
-        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64
+        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
 
       - name: Configure Unix
         if: matrix.os != 'windows'
-        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
 
       - name: Build
         run: cmake --build build-release --config Release --parallel
