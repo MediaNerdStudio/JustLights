@@ -11,13 +11,14 @@
 #include <QAction>
 #include <QApplication>
 #include <QCommandLineOption>
+#include <QCloseEvent>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QIcon>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMenu>
 #include <QMessageBox>
-#include <QStyle>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QUrl>
@@ -25,11 +26,23 @@
 #include <QWebEngineProfile>
 #include <QWebEngineView>
 
+class EngineWindow final : public QWebEngineView
+{
+protected:
+    void closeEvent(QCloseEvent *event) override
+    {
+        event->ignore();
+        hide();
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("JustLights"));
     app.setApplicationVersion(QStringLiteral(LIGHTCONTROLLER_VERSION));
+    const QIcon applicationIcon(QStringLiteral(":/icons/JustLights.png"));
+    app.setWindowIcon(applicationIcon);
     app.setQuitOnLastWindowClosed(false);
 
     QCommandLineParser parser;
@@ -98,12 +111,13 @@ int main(int argc, char *argv[])
     outputTimer.start();
 
     const QUrl uiUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.port()));
-    QWebEngineView window;
-    QSystemTrayIcon tray(app.style()->standardIcon(QStyle::SP_ComputerIcon));
+    EngineWindow window;
+    QSystemTrayIcon tray(applicationIcon);
     QMenu menu;
     QAction openAction(QStringLiteral("Open JustLights"), &menu);
+    QAction hideAction(QStringLiteral("Hide Window"), &menu);
     QAction blackoutAction(QStringLiteral("Blackout"), &menu);
-    QAction quitAction(QStringLiteral("Quit"), &menu);
+    QAction quitAction(QStringLiteral("Quit JustLights Engine"), &menu);
     QObject::connect(&instanceServer, &QLocalServer::newConnection, &window, [&instanceServer, &window, uiEnabled] {
         while (QLocalSocket *client = instanceServer.nextPendingConnection()) {
             client->waitForReadyRead(100);
@@ -125,6 +139,8 @@ int main(int argc, char *argv[])
         window.show();
 
         menu.addAction(&openAction);
+        menu.addAction(&hideAction);
+        menu.addSeparator();
         menu.addAction(&blackoutAction);
         menu.addSeparator();
         menu.addAction(&quitAction);
@@ -133,6 +149,7 @@ int main(int argc, char *argv[])
         tray.show();
 
         QObject::connect(&openAction, &QAction::triggered, &window, [&window] { window.show(); window.raise(); window.activateWindow(); });
+        QObject::connect(&hideAction, &QAction::triggered, &window, &QWidget::hide);
         QObject::connect(&blackoutAction, &QAction::triggered, &effectEngine, &EffectEngine::blackout);
         QObject::connect(&quitAction, &QAction::triggered, &app, &QCoreApplication::quit);
         QObject::connect(&tray, &QSystemTrayIcon::activated, &window, [&window](QSystemTrayIcon::ActivationReason reason) {

@@ -8,3 +8,6 @@ ui/node_modules/
 *.user
 *.log
 .DS_Store
+
+Fixture.Visualizer/
+Art/

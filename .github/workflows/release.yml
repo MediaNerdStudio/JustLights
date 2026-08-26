@@ -110,7 +110,7 @@ jobs:
           cp build-release/JustLights AppDir/usr/bin/JustLights
           cp -r ui/dist AppDir/usr/bin/ui
           cp -r ofl AppDir/usr/bin/ofl
-          cp ui/src/JustLights.Icon.White.svg AppDir/usr/share/icons/hicolor/scalable/apps/JustLights.svg
+          cp assets/icons/JustLights.svg AppDir/usr/share/icons/hicolor/scalable/apps/JustLights.svg
           cat > AppDir/usr/share/applications/JustLights.desktop <<'DESKTOP'
           [Desktop Entry]
           Type=Application
