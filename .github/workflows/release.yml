@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  QT_VERSION: "6.7.3"
+  QT_VERSION: "6.8.3"
 
 jobs:
   build:
@@ -69,11 +69,11 @@ jobs:
 
       - name: Configure Windows
         if: matrix.os == 'windows'
-        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64
 
       - name: Configure Unix
         if: matrix.os != 'windows'
-        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build-release --config Release --parallel
