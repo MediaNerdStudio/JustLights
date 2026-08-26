@@ -1,0 +1,13 @@
+{
+  "name": "medianerd-lightcontroller",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "install:ui": "npm --prefix ui install",
+    "build:ui": "npm --prefix ui run build",
+    "build:backend": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-backend.ps1",
+    "build": "npm run build:ui && npm run build:backend",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1"
+  }
+}

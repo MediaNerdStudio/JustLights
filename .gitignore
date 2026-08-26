@@ -1,0 +1,10 @@
+build/
+build-*/
+projects/
+ui/dist/
+ui/node_modules/
+.vscode/
+.idea/
+*.user
+*.log
+.DS_Store

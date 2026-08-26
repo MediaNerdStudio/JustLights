@@ -1,0 +1,239 @@
+{
+    "$schema": "https://raw.githubusercontent.com/OpenLightingProject/open-fixture-library/schema-12.5.1/schemas/fixture.json",
+    "availableChannels": {
+        "Blue": {
+            "capability": {
+                "color": "Blue",
+                "comment": "Blue",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Choose": {
+            "capabilities": [
+                {
+                    "comment": "DMX dimming",
+                    "dmxRange": [
+                        0,
+                        50
+                    ],
+                    "effectName": "DMX dimming",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Color output(8type)",
+                    "dmxRange": [
+                        51,
+                        100
+                    ],
+                    "effectName": "Color output(8type)",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Shade",
+                    "dmxRange": [
+                        101,
+                        150
+                    ],
+                    "effectName": "Shade",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Transform",
+                    "dmxRange": [
+                        151,
+                        200
+                    ],
+                    "effectName": "Transform",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Pulse Transform",
+                    "dmxRange": [
+                        201,
+                        250
+                    ],
+                    "effectName": "Pulse Transform",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound-activated",
+                    "dmxRange": [
+                        251,
+                        255
+                    ],
+                    "effectName": "Sound-activated",
+                    "type": "Effect"
+                }
+            ],
+            "defaultValue": 0
+        },
+        "Green": {
+            "capability": {
+                "color": "Green",
+                "comment": "Green",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Intensity": {
+            "capability": {
+                "comment": "Intensity",
+                "type": "Intensity"
+            },
+            "defaultValue": 0
+        },
+        "Red": {
+            "capability": {
+                "color": "Red",
+                "comment": "Red",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Shutter / Strobe": {
+            "capability": {
+                "comment": "Shutter / Strobe",
+                "shutterEffect": "Strobe",
+                "type": "ShutterStrobe"
+            },
+            "defaultValue": 0
+        },
+        "Sound Activated": {
+            "capabilities": [
+                {
+                    "comment": "Sound Activated Red",
+                    "dmxRange": [
+                        0,
+                        30
+                    ],
+                    "effectName": "Sound Activated Red",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Green",
+                    "dmxRange": [
+                        31,
+                        60
+                    ],
+                    "effectName": "Sound Activated Green",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Blue",
+                    "dmxRange": [
+                        61,
+                        92
+                    ],
+                    "effectName": "Sound Activated Blue",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated White",
+                    "dmxRange": [
+                        93,
+                        123
+                    ],
+                    "effectName": "Sound Activated White",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Yellow",
+                    "dmxRange": [
+                        124,
+                        154
+                    ],
+                    "effectName": "Sound Activated Yellow",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Violet",
+                    "dmxRange": [
+                        155,
+                        185
+                    ],
+                    "effectName": "Sound Activated Violet",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Change",
+                    "dmxRange": [
+                        186,
+                        216
+                    ],
+                    "effectName": "Sound Activated Change",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated White",
+                    "dmxRange": [
+                        217,
+                        247
+                    ],
+                    "effectName": "Sound Activated White",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Sound Activated Change Color",
+                    "dmxRange": [
+                        248,
+                        255
+                    ],
+                    "effectName": "Sound Activated Change Color",
+                    "type": "Effect"
+                }
+            ],
+            "defaultValue": 0
+        }
+    },
+    "categories": [
+        "Color Changer"
+    ],
+    "fixtureKey": "lpc008s",
+    "manufacturerKey": "betopper",
+    "meta": {
+        "authors": [
+            "MediaNerd"
+        ],
+        "createDate": "2026-08-26",
+        "lastModifyDate": "2026-08-26"
+    },
+    "modes": [
+        {
+            "channels": [
+                "Intensity",
+                "Red",
+                "Green",
+                "Blue",
+                "Shutter / Strobe",
+                "Choose",
+                "Sound Activated"
+            ],
+            "name": "7-channel",
+            "shortName": "7ch"
+        }
+    ],
+    "name": "LPC008S",
+    "physical": {
+        "DMXconnector": "3-pin XLR",
+        "bulb": {
+            "colorTemperature": 0,
+            "lumens": 0,
+            "type": ""
+        },
+        "dimensions": [
+            0,
+            0,
+            0
+        ],
+        "lens": {
+            "degreesMinMax": [
+                0,
+                0
+            ],
+            "name": "Other"
+        },
+        "power": 0,
+        "weight": 0
+    }
+}

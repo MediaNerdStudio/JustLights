@@ -1,0 +1,226 @@
+{
+    "$schema": "https://raw.githubusercontent.com/OpenLightingProject/open-fixture-library/schema-12.5.1/schemas/fixture.json",
+    "availableChannels": {
+        "Blue": {
+            "capability": {
+                "color": "Blue",
+                "comment": "Blue",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Effect": {
+            "capabilities": [
+                {
+                    "comment": "No Function",
+                    "dmxRange": [
+                        0,
+                        15
+                    ],
+                    "type": "NoFunction"
+                },
+                {
+                    "comment": "Color jump",
+                    "dmxRange": [
+                        16,
+                        95
+                    ],
+                    "effectName": "Color jump",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Color Gradient",
+                    "dmxRange": [
+                        96,
+                        177
+                    ],
+                    "effectName": "Color Gradient",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Pulse staining",
+                    "dmxRange": [
+                        188,
+                        255
+                    ],
+                    "effectName": "Pulse staining",
+                    "type": "Effect"
+                }
+            ],
+            "defaultValue": 0
+        },
+        "Green": {
+            "capability": {
+                "color": "Green",
+                "comment": "Green",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Intensity": {
+            "capability": {
+                "comment": "Intensity",
+                "type": "Intensity"
+            },
+            "defaultValue": 0
+        },
+        "Maintenance": {
+            "capabilities": [
+                {
+                    "comment": "No Function",
+                    "dmxRange": [
+                        0,
+                        15
+                    ],
+                    "type": "Maintenance"
+                },
+                {
+                    "comment": "Random self-driving",
+                    "dmxRange": [
+                        16,
+                        195
+                    ],
+                    "effectName": "Random self-driving",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Voice-controlled self-propelled",
+                    "dmxRange": [
+                        196,
+                        250
+                    ],
+                    "effectName": "Voice-controlled self-propelled",
+                    "type": "Effect"
+                },
+                {
+                    "comment": "Wait 3 seconds for the entire machine toreset",
+                    "dmxRange": [
+                        251,
+                        255
+                    ],
+                    "type": "Maintenance"
+                }
+            ],
+            "defaultValue": 0
+        },
+        "Pan": {
+            "capability": {
+                "angleEnd": "180deg",
+                "angleStart": "-180deg",
+                "comment": "Pan",
+                "type": "Pan"
+            },
+            "defaultValue": 0
+        },
+        "Red": {
+            "capability": {
+                "color": "Red",
+                "comment": "Red",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "Shutter / Strobe": {
+            "capabilities": [
+                {
+                    "comment": "No Function",
+                    "dmxRange": [
+                        0,
+                        9
+                    ],
+                    "type": "NoFunction"
+                },
+                {
+                    "comment": "Strobe Slow > Fast",
+                    "dmxRange": [
+                        10,
+                        255
+                    ],
+                    "shutterEffect": "Strobe",
+                    "type": "ShutterStrobe"
+                }
+            ],
+            "defaultValue": 0
+        },
+        "Tilt": {
+            "capability": {
+                "angleEnd": "90deg",
+                "angleStart": "-90deg",
+                "comment": "Tilt",
+                "type": "Tilt"
+            },
+            "defaultValue": 0
+        },
+        "White": {
+            "capability": {
+                "color": "White",
+                "comment": "White",
+                "type": "ColorIntensity"
+            },
+            "defaultValue": 0
+        },
+        "X-axis speed": {
+            "capability": {
+                "angleEnd": "180deg",
+                "angleStart": "-180deg",
+                "comment": "Pan fine",
+                "type": "Pan"
+            },
+            "defaultValue": 0
+        }
+    },
+    "categories": [
+        "Moving Head"
+    ],
+    "fixtureKey": "zq02577",
+    "manufacturerKey": "yiflamefly",
+    "meta": {
+        "authors": [
+            "MediaNerd"
+        ],
+        "createDate": "2026-08-25",
+        "lastModifyDate": "2026-08-25"
+    },
+    "modes": [
+        {
+            "channels": [
+                "Pan",
+                "Tilt",
+                "X-axis speed",
+                "Intensity",
+                "Shutter / Strobe",
+                "Red",
+                "Green",
+                "Blue",
+                "White",
+                "Effect",
+                "Maintenance"
+            ],
+            "name": "11-channel",
+            "shortName": "11ch"
+        }
+    ],
+    "name": "ZQ02577",
+    "physical": {
+        "DMXconnector": "5-pin XLR",
+        "bulb": {
+            "colorTemperature": 0,
+            "lumens": 0,
+            "type": ""
+        },
+        "dimensions": [
+            0,
+            0,
+            0
+        ],
+        "lens": {
+            "degreesMinMax": [
+                0,
+                0
+            ],
+            "name": "Other"
+        },
+        "power": 0,
+        "weight": 0
+    }
+}
