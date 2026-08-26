@@ -9,6 +9,7 @@
 #include "server/RtpMidiControl.h"
 #include "server/TcpJsonControl.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -20,6 +21,7 @@
 #include <QMimeDatabase>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QWebSocket>
 
@@ -29,6 +31,39 @@ static QString slugify(QString value)
 {
     value = value.toLower().replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
     return value.remove(QRegularExpression(QStringLiteral("^-|-$")));
+}
+
+static QString packagedDataRoot()
+{
+    const QDir applicationDirectory(QCoreApplication::applicationDirPath());
+    const QStringList candidates{applicationDirectory.absolutePath(), applicationDirectory.absoluteFilePath(QStringLiteral("../Resources"))};
+    for (const QString &candidate : candidates) {
+        if (QFileInfo(QDir(candidate).filePath(QStringLiteral("ui/index.html"))).isFile())
+            return QDir(candidate).absolutePath();
+    }
+    return {};
+}
+
+static QString uiDirectory()
+{
+    const QString root = packagedDataRoot();
+    return root.isEmpty() ? QStringLiteral(LIGHTCONTROLLER_UI_DIR) : QDir(root).filePath(QStringLiteral("ui"));
+}
+
+static QString oflDirectory()
+{
+    const QString root = packagedDataRoot();
+    return root.isEmpty() ? QStringLiteral(LIGHTCONTROLLER_OFL_DIR) : QDir(root).filePath(QStringLiteral("ofl"));
+}
+
+static QString projectsDirectory()
+{
+    return packagedDataRoot().isEmpty() ? QStringLiteral(LIGHTCONTROLLER_PROJECTS_DIR) : QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("projects"));
+}
+
+static QString customFixturesDirectory()
+{
+    return packagedDataRoot().isEmpty() ? QDir(QStringLiteral(LIGHTCONTROLLER_OFL_DIR)).filePath(QStringLiteral("custom")) : QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("ofl/custom"));
 }
 
 ControlServer::ControlServer(Universe *universe, EffectEngine *effectEngine, ArtNetOutput *artNet,
@@ -157,7 +192,7 @@ void ControlServer::configureRoutes()
 
     m_httpServer.route("/api/projects", [] {
         QJsonArray projects;
-        QDir directory(QStringLiteral(LIGHTCONTROLLER_PROJECTS_DIR));
+        QDir directory(projectsDirectory());
         const QFileInfoList files = directory.entryInfoList({QStringLiteral("*.json")}, QDir::Files, QDir::Time);
         for (const QFileInfo &info : files) {
             QFile file(info.absoluteFilePath());
@@ -170,7 +205,7 @@ void ControlServer::configureRoutes()
     });
 
     m_httpServer.route("/api/projects/<arg>", QHttpServerRequest::Method::Get, [](const QString &key) {
-        QFile file(QDir(QStringLiteral(LIGHTCONTROLLER_PROJECTS_DIR)).filePath(slugify(key) + QStringLiteral(".json")));
+        QFile file(QDir(projectsDirectory()).filePath(slugify(key) + QStringLiteral(".json")));
         if (!file.open(QIODevice::ReadOnly))
             return QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound);
         return QHttpServerResponse("application/json", file.readAll());
@@ -182,7 +217,7 @@ void ControlServer::configureRoutes()
         const QString projectKey = slugify(key);
         if (error.error != QJsonParseError::NoError || !document.isObject() || projectKey.isEmpty())
             return QHttpServerResponse("Invalid project JSON", QHttpServerResponder::StatusCode::BadRequest);
-        QDir directory(QStringLiteral(LIGHTCONTROLLER_PROJECTS_DIR));
+        QDir directory(projectsDirectory());
         if (!directory.mkpath(QStringLiteral(".")))
             return QHttpServerResponse("Could not create projects directory", QHttpServerResponder::StatusCode::InternalServerError);
         QSaveFile file(directory.filePath(projectKey + QStringLiteral(".json")));
@@ -193,18 +228,23 @@ void ControlServer::configureRoutes()
 
     m_httpServer.route("/api/fixtures/ofl", [] {
         QJsonArray fixtures;
-        QDirIterator iterator(QStringLiteral(LIGHTCONTROLLER_OFL_DIR), {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
-        while (iterator.hasNext() && fixtures.size() < 1000) {
-            const QString path = iterator.next();
-            if (QFileInfo(path).fileName() == QStringLiteral("manufacturers.json"))
-                continue;
-            QFile file(path);
-            if (!file.open(QIODevice::ReadOnly))
-                continue;
-            const QJsonObject fixture = QJsonDocument::fromJson(file.readAll()).object();
-            if (fixture.value("name").toString().isEmpty())
-                continue;
-            fixtures.append(QJsonObject{{"name", fixture.value("name")}, {"manufacturerKey", fixture.value("manufacturerKey")}, {"fixtureKey", fixture.value("fixtureKey")}, {"categories", fixture.value("categories")}, {"modes", fixture.value("modes")}});
+        QStringList roots{oflDirectory()};
+        if (!customFixturesDirectory().startsWith(oflDirectory()))
+            roots.append(customFixturesDirectory());
+        for (const QString &root : std::as_const(roots)) {
+            QDirIterator iterator(root, {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
+            while (iterator.hasNext() && fixtures.size() < 1000) {
+                const QString path = iterator.next();
+                if (QFileInfo(path).fileName() == QStringLiteral("manufacturers.json"))
+                    continue;
+                QFile file(path);
+                if (!file.open(QIODevice::ReadOnly))
+                    continue;
+                const QJsonObject fixture = QJsonDocument::fromJson(file.readAll()).object();
+                if (fixture.value("name").toString().isEmpty())
+                    continue;
+                fixtures.append(QJsonObject{{"name", fixture.value("name")}, {"manufacturerKey", fixture.value("manufacturerKey")}, {"fixtureKey", fixture.value("fixtureKey")}, {"categories", fixture.value("categories")}, {"modes", fixture.value("modes")}});
+            }
         }
         return QHttpServerResponse("application/json", QJsonDocument(fixtures).toJson(QJsonDocument::Compact));
     });
@@ -218,7 +258,7 @@ void ControlServer::configureRoutes()
         if (error.error != QJsonParseError::NoError || manufacturer.isEmpty() || fixtureKey.isEmpty() || fixture.value("name").toString().isEmpty())
             return QHttpServerResponse("Invalid OFL fixture JSON", QHttpServerResponder::StatusCode::BadRequest);
         const QString relativePath = QStringLiteral("custom/%1/%2.json").arg(manufacturer, fixtureKey);
-        const QString path = QDir(QStringLiteral(LIGHTCONTROLLER_OFL_DIR)).filePath(relativePath);
+        const QString path = QDir(customFixturesDirectory()).filePath(QStringLiteral("%1/%2.json").arg(manufacturer, fixtureKey));
         if (!QDir().mkpath(QFileInfo(path).absolutePath()))
             return QHttpServerResponse("Could not create custom fixture directory", QHttpServerResponder::StatusCode::InternalServerError);
         QSaveFile file(path);
@@ -234,7 +274,7 @@ void ControlServer::configureRoutes()
 
 QHttpServerResponse ControlServer::serveUi(const QString &path) const
 {
-    const QString uiRoot = QFileInfo(QStringLiteral(LIGHTCONTROLLER_UI_DIR)).canonicalFilePath();
+    const QString uiRoot = QFileInfo(uiDirectory()).canonicalFilePath();
     const QString requested = QFileInfo(uiRoot + QLatin1Char('/') + path).canonicalFilePath();
     if (uiRoot.isEmpty() || requested.isEmpty() || !requested.startsWith(uiRoot + QLatin1Char('/')))
         return QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound);

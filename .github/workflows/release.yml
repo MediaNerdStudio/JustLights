@@ -1,0 +1,170 @@
+name: Build and release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: "6.8.3"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows
+            runner: windows-2022
+            host: windows
+            arch: win64_msvc2022_64
+          - name: Linux x64
+            os: linux
+            runner: ubuntu-22.04
+            host: linux
+            arch: gcc_64
+          - name: macOS x64
+            os: macos
+            runner: macos-13
+            host: mac
+            arch: clang_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Linux build dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libfuse2
+
+      - name: Install Qt
+        uses: jdpurcell/install-qt-action@v5
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: ${{ matrix.host }}
+          target: desktop
+          arch: ${{ matrix.arch }}
+          modules: "qtpositioning qthttpserver qtwebsockets qtserialport"
+          extensions: "qtwebengine"
+          use-naqt: true
+          setup-python: false
+          cache: true
+
+      - name: Build web interface
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure Windows
+        if: matrix.os == 'windows'
+        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Configure Unix
+        if: matrix.os != 'windows'
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+
+      - name: Build
+        run: cmake --build build-release --config Release --parallel
+
+      - name: Package Windows
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $package = "JustLights-${{ github.ref_name }}-windows-x64"
+          New-Item -ItemType Directory -Force "$package"
+          Copy-Item "build-release/Release/JustLights.exe" "$package/JustLights.exe"
+          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release --no-translations --dir "$package" "$package/JustLights.exe"
+          Copy-Item -Recurse "ui/dist" "$package/ui"
+          Copy-Item -Recurse "ofl" "$package/ofl"
+          New-Item -ItemType Directory -Force "$package/projects"
+          Compress-Archive -Path "$package/*" -DestinationPath "$package.zip"
+
+      - name: Package Linux AppImage
+        if: matrix.os == 'linux'
+        run: |
+          package="JustLights-${GITHUB_REF_NAME}-linux-x64"
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
+          cp build-release/JustLights AppDir/usr/bin/JustLights
+          cp -r ui/dist AppDir/usr/bin/ui
+          cp -r ofl AppDir/usr/bin/ofl
+          cp ui/src/JustLights.Icon.White.svg AppDir/usr/share/icons/hicolor/scalable/apps/JustLights.svg
+          cat > AppDir/usr/share/applications/JustLights.desktop <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=JustLights
+          Exec=JustLights
+          Icon=JustLights
+          Categories=AudioVideo;Utility;
+          Terminal=false
+          DESKTOP
+          curl -L -o linuxdeploy.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -L -o linuxdeploy-plugin-qt.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
+          export QMAKE="$QT_ROOT_DIR/bin/qmake"
+          export EXTRA_QT_PLUGINS="webengine"
+          ./linuxdeploy.AppImage --appdir AppDir --plugin qt --output appimage
+          mv JustLights*.AppImage "$package.AppImage"
+
+      - name: Package macOS
+        if: matrix.os == 'macos'
+        run: |
+          package="JustLights-${GITHUB_REF_NAME}-macos-x64"
+          app="build-release/JustLights.app"
+          mkdir -p "$app/Contents/Resources/ui" "$app/Contents/Resources/ofl" "$app/Contents/Resources/projects"
+          cp -R ui/dist/. "$app/Contents/Resources/ui/"
+          cp -R ofl/. "$app/Contents/Resources/ofl/"
+          "$QT_ROOT_DIR/bin/macdeployqt" "$app" -always-overwrite
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$package.zip"
+
+      - name: Upload Windows artifact
+        if: matrix.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: JustLights-${{ github.ref_name }}-windows-x64.zip
+
+      - name: Upload Linux artifact
+        if: matrix.os == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: JustLights-${{ github.ref_name }}-linux-x64.AppImage
+
+      - name: Upload macOS artifact
+        if: matrix.os == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64
+          path: JustLights-${{ github.ref_name }}-macos-x64.zip
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
