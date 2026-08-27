@@ -226,6 +226,46 @@ void ControlServer::configureRoutes()
         return QHttpServerResponse("application/json", QJsonDocument(QJsonObject{{"key", projectKey}}).toJson(QJsonDocument::Compact));
     });
 
+    m_httpServer.route("/api/projects/<arg>/autosave", QHttpServerRequest::Method::Post, [](const QString &key, const QHttpServerRequest &request) {
+        QJsonParseError error;
+        const QJsonDocument document = QJsonDocument::fromJson(request.body(), &error);
+        const QString projectKey = slugify(key);
+        if (error.error != QJsonParseError::NoError || !document.isObject() || projectKey.isEmpty())
+            return QHttpServerResponse("Invalid project JSON", QHttpServerResponder::StatusCode::BadRequest);
+
+        QDir projectDir(projectsDirectory());
+        if (!projectDir.mkpath(QStringLiteral(".")))
+            return QHttpServerResponse("Could not create projects directory", QHttpServerResponder::StatusCode::InternalServerError);
+
+        QDir autosaveDir(projectDir.filePath(QStringLiteral("autosave/%1").arg(projectKey)));
+        if (!autosaveDir.mkpath(QStringLiteral(".")))
+            return QHttpServerResponse("Could not create autosave directory", QHttpServerResponder::StatusCode::InternalServerError);
+
+        int maxVersions = 20;
+        const QJsonObject autosaveSettings = document.object().value(QStringLiteral("state")).toObject().value(QStringLiteral("settings")).toObject().value(QStringLiteral("autosave")).toObject();
+        if (!autosaveSettings.isEmpty())
+            maxVersions = autosaveSettings.value(QStringLiteral("maxVersions")).toInt(20);
+        maxVersions = qBound(1, maxVersions, 100);
+
+        int lastIndex = 0;
+        const QFileInfoList files = autosaveDir.entryInfoList({QStringLiteral("*.json")}, QDir::Files);
+        for (const QFileInfo &info : std::as_const(files)) {
+            bool ok = false;
+            const int n = info.baseName().toInt(&ok);
+            if (ok && n > lastIndex)
+                lastIndex = n;
+        }
+        const int nextIndex = lastIndex >= maxVersions ? 1 : lastIndex + 1;
+        const QString filePath = autosaveDir.filePath(QString::number(nextIndex) + QStringLiteral(".json"));
+        QFile::remove(filePath);
+
+        QSaveFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly) || file.write(document.toJson(QJsonDocument::Indented)) < 0 || !file.commit())
+            return QHttpServerResponse("Could not save autosave", QHttpServerResponder::StatusCode::InternalServerError);
+
+        return QHttpServerResponse("application/json", QJsonDocument(QJsonObject{{"ok", true}, {"index", nextIndex}}).toJson(QJsonDocument::Compact));
+    });
+
     m_httpServer.route("/api/fixtures/ofl", [] {
         QJsonArray fixtures;
         QStringList roots{oflDirectory()};

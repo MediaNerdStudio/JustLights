@@ -37,7 +37,8 @@ function inferKind(name = '') {
 }
 
 const defaultChannelGroups = [{ id: 'intensity', name: 'Intensity', color: '#ffffff' }, { id: 'color', name: 'Color', color: '#7c3aed' }, { id: 'position', name: 'Position', color: '#22c55e' }]
-const blankProjectState = () => ({ fixtures: [], groups: [], channelGroups: defaultChannelGroups, effects: [], channels: initialChannels, outputs: { artnet: true, sacn: false, usb: false }, settings: { projectName: 'Untitled', frameRate: 40 }, stage: { locked: true, height: 288 } })
+const defaultAutosave = { enabled: true, intervalMinutes: 5, maxVersions: 20 }
+const blankProjectState = () => ({ fixtures: [], groups: [], channelGroups: defaultChannelGroups, effects: [], channels: initialChannels, outputs: { artnet: true, sacn: false, usb: false }, settings: { projectName: 'Untitled', frameRate: 40, autosave: { ...defaultAutosave } }, stage: { locked: true, height: 288 } })
 
 function makeControlMap(fixtures, groups) {
   const fixtureChannels = (fixture) => fixture.channels.reduce((map, channel) => { if (!channel.name.toLowerCase().includes('fine')) (map[channel.kind] ||= []).push(fixture.address + channel.offset); return map }, {})
@@ -62,8 +63,9 @@ function App() {
   const [outputs, setOutputs] = useState({ artnet: true, sacn: false, usb: false })
   const [outputStatus, setOutputStatus] = useState({ usb: { connected: false, portName: '', error: '', devices: [] } })
   const [protocolStatus, setProtocolStatus] = useState({})
-  const [settings, setSettings] = useState({ projectName: 'Untitled', frameRate: 40 })
+  const [settings, setSettings] = useState({ projectName: 'Untitled', frameRate: 40, autosave: { ...defaultAutosave } })
   const socketRef = useRef(null)
+  const autosaveRef = useRef({ enabled: true, intervalMs: 300000, getDocument: () => null })
 
   useEffect(() => {
     let reconnectTimer
@@ -114,6 +116,29 @@ function App() {
     if (connected) send({ type: 'controlMap:set', map: makeControlMap(fixtures, groups) })
   }, [connected, fixtures, groups])
 
+  useEffect(() => {
+    autosaveRef.current.enabled = settings.autosave?.enabled ?? true
+    autosaveRef.current.intervalMs = Math.max(1, settings.autosave?.intervalMinutes ?? 5) * 60000
+  }, [settings.autosave?.enabled, settings.autosave?.intervalMinutes])
+
+  useEffect(() => {
+    autosaveRef.current.getDocument = () => projectDocument()
+  })
+
+  useEffect(() => {
+    if (!project?.key || !autosaveRef.current.enabled) return undefined
+    const id = window.setInterval(() => {
+      const document = autosaveRef.current.getDocument()
+      if (!document) return
+      fetch(`/api/projects/${encodeURIComponent(project.key)}/autosave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(document)
+      }).catch(() => {})
+    }, autosaveRef.current.intervalMs)
+    return () => window.clearInterval(id)
+  }, [project?.key, settings.autosave?.enabled, settings.autosave?.intervalMinutes])
+
   const setChannel = (channel, value) => {
     setChannels((current) => current.map((item, index) => index === channel - 1 ? value : item))
     send({ type: 'setChannel', channel, value })
@@ -128,7 +153,7 @@ function App() {
     setEffects(state.effects || [])
     setChannels(state.channels?.length === 512 ? state.channels : initialChannels)
     setOutputs({ artnet: true, sacn: false, usb: false, ...(state.outputs || {}) })
-    setSettings({ projectName: document.name || state.settings?.projectName || 'Untitled', frameRate: state.settings?.frameRate || 40 })
+    setSettings({ projectName: document.name || state.settings?.projectName || 'Untitled', frameRate: state.settings?.frameRate || 40, autosave: { ...defaultAutosave, ...(state.settings?.autosave || {}) } })
     localStorage.setItem('lightcontroller.stageLocked', String(state.stage?.locked ?? true))
     localStorage.setItem('lightcontroller.stageHeight', String(state.stage?.height || 288))
     ;(state.channels || initialChannels).forEach((value, index) => send({ type: 'setChannel', channel: index + 1, value }))
@@ -137,7 +162,10 @@ function App() {
     setProjectError('')
   }
   const refreshProjects = () => fetch('/api/projects').then((response) => response.json()).then(setRecentProjects)
-  const createProject = (name) => applyProject({ name, state: blankProjectState() })
+  const createProject = (name) => {
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled'
+  applyProject({ name, state: blankProjectState() }, key)
+}
   const openProject = async (key) => {
     const response = await fetch(`/api/projects/${encodeURIComponent(key)}`)
     if (!response.ok) return setProjectError('Could not open project.')
@@ -197,7 +225,7 @@ function App() {
           {page === 'control' && <ControlPage key={project.key || project.name} bank={bank} setBank={setBank} channels={channels} visibleChannels={visibleChannels} setChannel={setChannel} fixtures={fixtures} setFixtures={setFixtures} groups={groups} effects={effects} setEffects={setEffects} send={send} frameRate={settings.frameRate} outputs={outputs} />}
           {page === 'patch' && <FixtureManager fixtures={fixtures} setFixtures={setFixtures} groups={groups} setGroups={setGroups} channelGroups={channelGroups} setChannelGroups={setChannelGroups} />}
           {page === 'outputs' && <OutputsPage outputs={outputs} setOutputs={setOutputs} outputStatus={outputStatus} protocolStatus={protocolStatus} connected={connected} send={send} />}
-          {page === 'settings' && <SettingsPage settings={settings} setSettings={setSettings} />}
+          {page === 'settings' && <SettingsPage settings={settings} setSettings={setSettings} onSave={saveProject} />}
         </main>
       </div>
     </div>
@@ -254,8 +282,10 @@ function OutputIcon() { return <div className="grid size-10 place-items-center r
 function ProtocolCard({ title, detail, active }) { return <section className="rounded-xl border border-white/10 bg-[#11141b] p-4"><div className="flex items-center justify-between"><OutputIcon /><span className={`badge badge-sm badge-outline ${active ? 'badge-success' : 'badge-error'}`}>{active ? 'Listening' : 'Unavailable'}</span></div><h3 className="mt-3 font-semibold">{title}</h3><p className="mt-1 text-xs text-slate-500">{detail}</p></section> }
 function OutputBadge({ active, enabled }) { return <div className={`badge badge-outline mt-4 ${active ? 'badge-success' : 'badge-ghost'}`}>{active ? 'Sending' : enabled ? 'Waiting' : 'Disabled'}</div> }
 
-function SettingsPage({ settings, setSettings }) {
+function SettingsPage({ settings, setSettings, onSave }) {
   const update = (field, value) => setSettings({ ...settings, [field]: value })
+  const updateAutosave = (field, value) => setSettings({ ...settings, autosave: { ...settings.autosave, [field]: value } })
+  const autosave = settings.autosave || { enabled: true, intervalMinutes: 5, maxVersions: 20 }
   return <>
     <PageTitle title="Settings" subtitle="Application and engine preferences" />
     <section className="mt-5 max-w-2xl rounded-xl border border-white/10 bg-[#11141b] p-5">
@@ -263,7 +293,22 @@ function SettingsPage({ settings, setSettings }) {
         <label className="fieldset-label flex-col items-start gap-2"><span>Project name</span><input className="input w-full" value={settings.projectName} onChange={(event) => update('projectName', event.target.value)} /></label>
         <label className="fieldset-label flex-col items-start gap-2"><span>Output frame rate</span><select className="select w-full" value={settings.frameRate} onChange={(event) => update('frameRate', Number(event.target.value))}><option value={30}>30 fps</option><option value={40}>40 fps</option><option value={44}>44 fps</option></select></label>
       </div>
-      <div className="mt-6 flex justify-end"><button className="btn btn-primary btn-sm"><Save size={16} /> Save settings</button></div>
+      <div className="divider my-6 text-xs text-slate-600">Autosave</div>
+      <div className="grid gap-5 sm:grid-cols-3">
+        <label className="fieldset-label flex-col items-start gap-2">
+          <span>Enable autosave</span>
+          <input type="checkbox" className="toggle toggle-primary" checked={autosave.enabled} onChange={(event) => updateAutosave('enabled', event.target.checked)} />
+        </label>
+        <label className="fieldset-label flex-col items-start gap-2">
+          <span>Autosave interval (minutes)</span>
+          <input type="number" min={1} max={60} className="input w-full" value={autosave.intervalMinutes} onChange={(event) => updateAutosave('intervalMinutes', Math.max(1, Math.min(60, Number(event.target.value) || 1)))} />
+        </label>
+        <label className="fieldset-label flex-col items-start gap-2">
+          <span>Autosave versions</span>
+          <input type="number" min={1} max={100} className="input w-full" value={autosave.maxVersions} onChange={(event) => updateAutosave('maxVersions', Math.max(1, Math.min(100, Number(event.target.value) || 1)))} />
+        </label>
+      </div>
+      <div className="mt-6 flex justify-end"><button className="btn btn-primary btn-sm" onClick={onSave}><Save size={16} /> Save settings</button></div>
     </section>
   </>
 }

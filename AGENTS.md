@@ -60,6 +60,10 @@ npm run dev
 
 Vite runs at `http://localhost:5173` and proxies `/api` and `/ws` to the backend port in `JUSTLIGHTS_PORT` (default 8080). Running `npm run preview` without the Qt backend only previews the interface; it will show the engine as offline and cannot output DMX.
 
+## Autosave
+
+Projects are autosaved by default. The UI posts the current project to `POST /api/projects/<key>/autosave` at the configured interval (default 5 minutes) and the backend keeps up to the configured number of rotating backups (default 20). Autosave files are stored under `projects/autosave/<key>/<n>.json` and are not shown in the recent-projects list. Settings are saved inside the project document under `state.settings.autosave` and can be changed on the Settings page.
+
 ## Verification
 
 ```
