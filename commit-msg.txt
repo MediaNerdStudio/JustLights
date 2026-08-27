@@ -1,8 +1,0 @@
-Use the white icon for splash and header branding.
-
-- Copy Art/JustLights.Icon.White.svg into tracked ui/src/assets.
-- Switch the splash screen and main window header to use the white icon instead of the full-color app icon.
-
-Generated with [Devin](https://devin.ai)
-
-Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
