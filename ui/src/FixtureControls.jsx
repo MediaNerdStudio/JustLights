@@ -118,8 +118,7 @@ function DimmerEffectEditor({ effect, update }) {
   const setColor = (index, value) => update(effect.id, 'colors', effect.colors.map((color, colorIndex) => colorIndex === index ? value : color))
   const toggleBeat = () => update(effect.id, 'beatMultiplier', effect.beatMultiplier ? undefined : 'x1')
   const range = (key, label, min, max, suffix = '') => <label key={key} className="grid grid-cols-[58px_1fr_28px] items-center gap-1"><span>{label}</span><input type="range" className="range range-xs" min={min} max={max} value={effect[key] ?? 0} onInput={(event) => update(effect.id, key, Number(event.target.value))} /><span className="text-right tabular-nums">{effect[key] ?? 0}{suffix}</span></label>
-  const percentField = (field) => range(field.key, field.label, 0, 100, '%')
-  const numberField = (field) => <label key={field.key} className="grid grid-cols-[58px_1fr] items-center gap-1"><span>{field.label}</span><input type="number" className="input input-xs" min={field.min} max={field.max} value={effect[field.key] ?? field.default} onChange={(event) => update(effect.id, field.key, Math.max(field.min, Math.min(field.max, Number(event.target.value) || field.default)))} /></label>
+  const fieldSlider = (field) => range(field.key, field.label, field.min, field.max, field.max === 100 && field.min === 0 ? '%' : '')
   return <div className="mt-2 space-y-2 text-[9px] text-slate-500">
     <div className="grid grid-cols-2 gap-1">
       <select className="select select-xs" value={effect.dimmerType} onChange={(event) => update(effect.id, 'dimmerType', event.target.value)}>{dimmerEffectTypes.map((type) => <option key={type}>{type}</option>)}</select>
@@ -128,8 +127,8 @@ function DimmerEffectEditor({ effect, update }) {
     <label className="flex items-center justify-between"><span>Sync to beat</span><input type="checkbox" className="checkbox checkbox-xs" checked={!!effect.beatMultiplier} onChange={toggleBeat} /></label>
     {effect.beatMultiplier ? <label className="grid grid-cols-[58px_1fr] items-center gap-1"><span>Beat</span><select className="select select-xs" value={effect.beatMultiplier} onChange={(event) => update(effect.id, 'beatMultiplier', event.target.value)}>{beatMultipliers.map((value) => <option key={value}>{value}</option>)}</select></label> : <label className="grid grid-cols-[58px_1fr] items-center gap-1"><span>Duration</span><input className="input input-xs" type="number" min={0.1} step={0.1} value={effect.duration ?? 1} onChange={(event) => update(effect.id, 'duration', Number(event.target.value))} /></label>}
     {!isCurve && <div className="flex flex-wrap gap-1">{(effect.colors || []).map((color, index) => <input key={index} type="color" className="size-6 rounded" value={color} onChange={(event) => setColor(index, event.target.value)} />)}<button className="btn btn-ghost btn-xs" onClick={() => update(effect.id, 'colors', [...(effect.colors || []), '#ffffff'])}><Plus size={10} /></button></div>}
-    {isCurve && <label className="grid grid-cols-[58px_1fr] items-center gap-1"><span>Time offset</span><input className="input input-xs" type="number" min={0} max={100} step={1} value={effect.timeOffset ?? 0} onChange={(event) => update(effect.id, 'timeOffset', Math.max(0, Math.min(100, Number(event.target.value) || 0)))} /></label>}
-    {fields.map((field) => field.kind === 'boolean' ? null : field.kind === 'select' ? null : field.max === 100 && field.min === 0 ? percentField(field) : numberField(field))}
+    {isCurve && range('timeOffset', 'Time offset', 0, 100, '%')}
+    {fields.map((field) => field.kind === 'boolean' ? null : field.kind === 'select' ? null : fieldSlider(field))}
   </div>
 }
 

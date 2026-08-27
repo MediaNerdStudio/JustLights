@@ -87,7 +87,7 @@ export const dimmerFields = {
 }
 
 function percent(key, label, defaultValue = 0) {
-  return { key, label, default: defaultValue }
+  return { key, label, min: 0, max: 100, default: defaultValue }
 }
 
 function number(key, label, min = 0, max = 40, defaultValue = 1) {
