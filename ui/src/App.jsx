@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity, CirclePower, Download, FilePlus2, FolderOpen, Grid3X3, Radio, Save, Settings2, SlidersVertical } from 'lucide-react'
+import { Activity, CirclePower, Download, FilePlus2, FolderOpen, Grid3X3, Info, Radio, Save, Settings2, SlidersVertical } from 'lucide-react'
 import FixtureControls from './FixtureControls.jsx'
 import FixtureStage from './FixtureStage.jsx'
 import FixtureManager from './FixtureManager.jsx'
@@ -41,6 +41,18 @@ const defaultChannelGroups = [{ id: 'intensity', name: 'Intensity', color: '#fff
 const defaultAutosave = { enabled: true, intervalMinutes: 5, maxVersions: 20 }
 const blankProjectState = () => ({ fixtures: [], groups: [], channelGroups: defaultChannelGroups, effects: [], channels: initialChannels, outputs: { artnet: true, sacn: false, usb: false }, settings: { projectName: 'Untitled', frameRate: 40, bpm: 120, autosave: { ...defaultAutosave } }, stage: { locked: true, height: 288 } })
 
+function useVersionInfo() {
+  const [current, setCurrent] = useState('')
+  const [latest, setLatest] = useState(null)
+  useEffect(() => {
+    fetch('/api/status').then((response) => response.ok ? response.json() : null).then((status) => setCurrent(status?.version || '')).catch(() => {})
+    fetch('https://api.github.com/repos/MediaNerdStudio/JustLights/releases/latest').then((response) => response.ok ? response.json() : null).then((release) => setLatest(release)).catch(() => {})
+  }, [])
+  const latestTag = latest?.tag_name || ''
+  const hasUpdate = current && latestTag && latestTag.replace(/^v/, '') !== current
+  return { current, latest: latestTag, hasUpdate, url: latest?.html_url || 'https://github.com/MediaNerdStudio/JustLights/releases' }
+}
+
 function makeControlMap(fixtures, groups) {
   const fixtureChannels = (fixture) => fixture.channels.reduce((map, channel) => { if (!channel.name.toLowerCase().includes('fine')) (map[channel.kind] ||= []).push(fixture.address + channel.offset); return map }, {})
   const map = {}
@@ -65,6 +77,7 @@ function App() {
   const [outputStatus, setOutputStatus] = useState({ usb: { connected: false, portName: '', error: '', devices: [] } })
   const [protocolStatus, setProtocolStatus] = useState({})
   const [settings, setSettings] = useState({ projectName: 'Untitled', frameRate: 40, bpm: 120, autosave: { ...defaultAutosave } })
+  const versionInfo = useVersionInfo()
   const socketRef = useRef(null)
   const autosaveRef = useRef({ enabled: true, intervalMs: 300000, getDocument: () => null })
 
@@ -201,7 +214,7 @@ function App() {
   }
   const visibleChannels = Array.from({ length: 16 }, (_, index) => bank * 16 + index + 1)
 
-  if (!project) return <ProjectSplash projects={recentProjects} error={projectError} onNew={createProject} onOpen={openProject} onImport={importProject} />
+  if (!project) return <ProjectSplash projects={recentProjects} error={projectError} versionInfo={versionInfo} onNew={createProject} onOpen={openProject} onImport={importProject} />
 
   return (
     <div className="min-h-screen bg-[#0b0d12] text-slate-200">
@@ -210,6 +223,7 @@ function App() {
           <img className="h-8 w-9 object-contain" src={logoIcon} alt="" />
           <div><img className="h-5 object-contain" src={lettersLogo} alt="JustLights" /><div className="text-[10px] text-slate-500">{settings.projectName}</div></div>
         </div>
+        {versionInfo.hasUpdate && <div className="alert alert-soft alert-primary hidden items-center gap-2 px-3 py-1 text-xs md:flex"><Info size={14} /><span>New version <a className="link font-medium" href={versionInfo.url} target="_blank" rel="noreferrer">{versionInfo.latest}</a> available</span></div>}
         <div className="flex items-center gap-2">
           <button className="btn btn-ghost btn-sm" onClick={() => setProject(null)}><FolderOpen size={15} /> Projects</button>
           <button className="btn btn-ghost btn-sm" onClick={exportProject}><Download size={15} /> Export</button>
@@ -237,10 +251,10 @@ function App() {
   )
 }
 
-function ProjectSplash({ projects, error, onNew, onOpen, onImport }) {
+function ProjectSplash({ projects, error, versionInfo, onNew, onOpen, onImport }) {
   const [name, setName] = useState('')
   const create = () => { const projectName = name.trim(); if (projectName) onNew(projectName) }
-  return <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#0b0d12] p-6 text-slate-200"><img className="absolute inset-0 size-full object-cover" src={splashArtwork} alt="" /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(11,13,18,.2),rgba(11,13,18,.88)_80%)] backdrop-blur-[1px]" /><section className="relative z-10 w-full max-w-3xl"><div className="mx-auto mb-10 flex items-center justify-center gap-5"><img className="h-20 w-24 object-contain" src={logoIcon} alt="" /><img className="h-12 object-contain" src={lettersLogo} alt="JustLights" /></div><div className="grid gap-4 md:grid-cols-[1fr_1.5fr]"><div className="rounded-xl border border-white/10 bg-[#11141b] p-5"><h1 className="text-lg font-semibold">New project</h1><p className="mt-1 text-xs text-slate-500">Start with an empty universe and fixture patch.</p><input className="input input-sm mt-5 w-full" placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') create() }} /><button className="btn btn-primary btn-sm mt-3 w-full" disabled={!name.trim()} onClick={create}><FilePlus2 size={15} /> Create project</button><div className="divider text-[10px] text-slate-600">or</div><label className="btn btn-outline btn-sm w-full"><FolderOpen size={15} /> Import project<input type="file" className="hidden" accept=".json,.justlights.json" onChange={onImport} /></label></div><div className="rounded-xl border border-white/10 bg-[#11141b] p-5"><h2 className="text-lg font-semibold">Recent projects</h2><div className="mt-4 max-h-72 space-y-2 overflow-y-auto">{projects.length ? projects.map((item) => <button key={item.key} className="flex w-full items-center justify-between rounded-lg border border-white/5 bg-white/[.025] p-3 text-left hover:border-primary/50 hover:bg-primary/10" onClick={() => onOpen(item.key)}><span><span className="block text-sm font-medium">{item.name}</span><span className="text-[10px] text-slate-500">{item.modified ? new Date(item.modified).toLocaleString() : item.key}</span></span><FolderOpen size={16} className="text-slate-500" /></button>) : <div className="grid h-40 place-items-center text-sm text-slate-600">No saved projects yet</div>}</div>{error && <div className="mt-3 text-xs text-error">{error}</div>}</div></div></section></main>
+  return <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#0b0d12] p-6 text-slate-200"><img className="absolute inset-0 size-full object-cover" src={splashArtwork} alt="" /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(11,13,18,.2),rgba(11,13,18,.88)_80%)] backdrop-blur-[1px]" /><section className="relative z-10 w-full max-w-3xl">{versionInfo.hasUpdate && <div className="alert alert-info mb-4 items-center gap-2 bg-slate-800/80 text-xs text-slate-200"><Info size={16} /><span>New version <a className="link font-medium" href={versionInfo.url} target="_blank" rel="noreferrer">{versionInfo.latest}</a> is available on GitHub.</span></div>}<div className="mx-auto mb-10 flex items-center justify-center gap-5"><img className="h-20 w-24 object-contain" src={logoIcon} alt="" /><img className="h-12 object-contain" src={lettersLogo} alt="JustLights" /></div><div className="grid gap-4 md:grid-cols-[1fr_1.5fr]"><div className="rounded-xl border border-white/10 bg-[#11141b] p-5"><h1 className="text-lg font-semibold">New project</h1><p className="mt-1 text-xs text-slate-500">Start with an empty universe and fixture patch.</p><input className="input input-sm mt-5 w-full" placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') create() }} /><button className="btn btn-primary btn-sm mt-3 w-full" disabled={!name.trim()} onClick={create}><FilePlus2 size={15} /> Create project</button><div className="divider text-[10px] text-slate-600">or</div><label className="btn btn-outline btn-sm w-full"><FolderOpen size={15} /> Import project<input type="file" className="hidden" accept=".json,.justlights.json" onChange={onImport} /></label></div><div className="rounded-xl border border-white/10 bg-[#11141b] p-5"><h2 className="text-lg font-semibold">Recent projects</h2><div className="mt-4 max-h-72 space-y-2 overflow-y-auto">{projects.length ? projects.map((item) => <button key={item.key} className="flex w-full items-center justify-between rounded-lg border border-white/5 bg-white/[.025] p-3 text-left hover:border-primary/50 hover:bg-primary/10" onClick={() => onOpen(item.key)}><span><span className="block text-sm font-medium">{item.name}</span><span className="text-[10px] text-slate-500">{item.modified ? new Date(item.modified).toLocaleString() : item.key}</span></span><FolderOpen size={16} className="text-slate-500" /></button>) : <div className="grid h-40 place-items-center text-sm text-slate-600">No saved projects yet</div>}</div>{error && <div className="mt-3 text-xs text-error">{error}</div>}</div></div></section><div className="absolute bottom-4 z-10 text-center text-[10px] text-slate-400">Version {versionInfo.current || '...'} © {new Date().getFullYear()} MediaNerd</div></main>
 }
 
 function ControlPage({ bank, setBank, channels, visibleChannels, setChannel, fixtures, setFixtures, groups, effects, setEffects, send, frameRate, outputs }) {
