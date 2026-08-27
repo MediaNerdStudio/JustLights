@@ -3,7 +3,7 @@ import { Activity, CirclePower, Download, FilePlus2, FolderOpen, Grid3X3, Radio,
 import FixtureControls from './FixtureControls.jsx'
 import FixtureStage from './FixtureStage.jsx'
 import FixtureManager from './FixtureManager.jsx'
-import logoIcon from './assets/JustLights.AppIcon.svg'
+import logoIcon from './assets/JustLights.Icon.White.svg'
 import lettersLogo from './JustLights.Letters.White.svg'
 import splashArtwork from './assets/JustLights.Splash.webp'
 
