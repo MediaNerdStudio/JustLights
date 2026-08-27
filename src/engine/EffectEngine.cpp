@@ -375,7 +375,7 @@ double EffectEngine::curveMixValue(const QString &type, double t)
 
 double EffectEngine::beatMultiplierFactor(const QString &multiplier)
 {
-    if (multiplier.startsWith(QLatin1Char('\u00F7')))
+    if (multiplier.startsWith(QStringLiteral("\u00F7")))
         return 1.0 / std::max(1.0, multiplier.mid(1).toDouble());
     if (multiplier.startsWith(QLatin1Char('x')))
         return std::max(1.0, multiplier.mid(1).toDouble());
