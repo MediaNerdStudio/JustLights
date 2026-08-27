@@ -135,6 +135,9 @@ bool ControlServer::processCommand(const QJsonObject &object)
             m_controlMap = object.value("controlMap").toObject();
         scheduleBroadcast();
         return true;
+    } else if (type == QStringLiteral("bpm:set")) {
+        m_effectEngine->setBpm(object.value("bpm").toDouble(120.0));
+        return true;
     } else if (type == QStringLiteral("control")) {
         const QString target = object.value("target").toString();
         const int value = object.value("value").toInt();

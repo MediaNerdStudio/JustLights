@@ -77,6 +77,11 @@ void EffectEngine::blackout()
     m_universe->blackout();
 }
 
+void EffectEngine::setBpm(double bpm)
+{
+    m_bpm = std::max(1.0, bpm);
+}
+
 void EffectEngine::render()
 {
     if (m_blackout)
@@ -117,6 +122,9 @@ void EffectEngine::render()
                 setChannels(frame, target.channels.value("Green"), color.green());
                 setChannels(frame, target.channels.value("Blue"), color.blue());
                 setChannels(frame, target.channels.value("White"), qRound(color.lightnessF() * effect.config.value("white").toDouble(0.0) / 100.0 * 255.0));
+            } else if (effect.type == "dimmerEffect") {
+                const double value = dimmerValueForEffect(effect, time, effectIndex, targetCount);
+                setChannels(frame, target.channels.value("Intensity"), qRound(value * 255.0), true);
             } else if (effect.type == "motion") {
                 const double frequency = effect.config.contains("duration") ? 1.0 / std::max(0.1, effect.config.value("duration").toDouble()) : effect.speed;
                 const double pan = wave(effect.waveform, time * frequency, phase);
@@ -302,6 +310,78 @@ QColor EffectEngine::paletteColor(const QList<QColor> &colors, double position, 
     const int second = (first + 1) % colors.size();
     const double mix = std::clamp((scaled - std::floor(scaled)) * smoothness, 0.0, 1.0);
     return QColor::fromRgbF(colors[first].redF() * (1.0 - mix) + colors[second].redF() * mix, colors[first].greenF() * (1.0 - mix) + colors[second].greenF() * mix, colors[first].blueF() * (1.0 - mix) + colors[second].blueF() * mix);
+}
+
+double EffectEngine::dimmerValueForEffect(const Effect &effect, double time, int index, int count)
+{
+    const QString dimmerType = effect.config.value(QStringLiteral("dimmerType")).toString();
+    if (dimmerType == QStringLiteral("Curve"))
+        return curveDimmerValue(effect, time, index, count);
+
+    Effect adjusted = effect;
+    QJsonObject config = effect.config;
+    if (config.contains(QStringLiteral("beatMultiplier"))) {
+        const double factor = beatMultiplierFactor(config.value(QStringLiteral("beatMultiplier")).toString());
+        const double beatInterval = 60.0 / m_bpm;
+        config.insert(QStringLiteral("duration"), beatInterval / factor);
+    }
+    adjusted.config = config;
+    adjusted.colorType = dimmerType;
+    const QColor color = colorForEffect(adjusted, time, index, count);
+    return qGray(color.red(), color.green(), color.blue()) / 255.0;
+}
+
+double EffectEngine::curveDimmerValue(const Effect &effect, double time, int index, int count)
+{
+    const QJsonObject &p = effect.config;
+    double duration = std::max(0.05, p.value(QStringLiteral("duration")).toDouble(1.0));
+    if (p.contains(QStringLiteral("beatMultiplier"))) {
+        const double factor = beatMultiplierFactor(p.value(QStringLiteral("beatMultiplier")).toString());
+        duration = std::max(0.05, (60.0 / m_bpm) / factor);
+    }
+    const double position = count <= 1 ? 0.0 : static_cast<double>(index) / count;
+    const double progress = std::fmod(time / duration + p.value(QStringLiteral("phase")).toDouble(0.0) / 100.0 + position * p.value(QStringLiteral("timeOffset")).toDouble(0.0) / 100.0, 1.0);
+    const QJsonArray curve = p.value(QStringLiteral("curve")).toArray();
+    for (const QJsonValue &segmentValue : curve) {
+        const QJsonObject segment = segmentValue.toObject();
+        const double from = segment.value(QStringLiteral("from")).toDouble();
+        const double to = segment.value(QStringLiteral("to")).toDouble();
+        if (progress < from || progress > to)
+            continue;
+        const double t = (to - from) == 0.0 ? 0.0 : (progress - from) / (to - from);
+        const double fromValue = segment.value(QStringLiteral("fromValue")).toDouble();
+        const double toValue = segment.value(QStringLiteral("toValue")).toDouble();
+        const double mix = curveMixValue(segment.value(QStringLiteral("type")).toString(), t);
+        return fromValue + (toValue - fromValue) * mix;
+    }
+    return 0.0;
+}
+
+double EffectEngine::curveMixValue(const QString &type, double t)
+{
+    t = std::clamp(t, 0.0, 1.0);
+    if (type == QStringLiteral("constant"))
+        return 0.0;
+    if (type == QStringLiteral("linear"))
+        return t;
+    if (type == QStringLiteral("sine"))
+        return 0.5 - 0.5 * std::cos(t * std::numbers::pi);
+    if (type == QStringLiteral("easeInOut"))
+        return t * t * (3.0 - 2.0 * t);
+    if (type == QStringLiteral("curveDown"))
+        return 1.0 - std::pow(1.0 - t, 2.0);
+    return t;
+}
+
+double EffectEngine::beatMultiplierFactor(const QString &multiplier)
+{
+    if (multiplier.startsWith(QLatin1Char('\u00F7')))
+        return 1.0 / std::max(1.0, multiplier.mid(1).toDouble());
+    if (multiplier.startsWith(QLatin1Char('x')))
+        return std::max(1.0, multiplier.mid(1).toDouble());
+    bool ok = false;
+    const double value = multiplier.toDouble(&ok);
+    return ok ? value : 1.0;
 }
 
 double EffectEngine::curveValue(const QString &type, double position)

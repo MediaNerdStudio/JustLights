@@ -39,7 +39,7 @@ function inferKind(name = '') {
 
 const defaultChannelGroups = [{ id: 'intensity', name: 'Intensity', color: '#ffffff' }, { id: 'color', name: 'Color', color: '#7c3aed' }, { id: 'position', name: 'Position', color: '#22c55e' }]
 const defaultAutosave = { enabled: true, intervalMinutes: 5, maxVersions: 20 }
-const blankProjectState = () => ({ fixtures: [], groups: [], channelGroups: defaultChannelGroups, effects: [], channels: initialChannels, outputs: { artnet: true, sacn: false, usb: false }, settings: { projectName: 'Untitled', frameRate: 40, autosave: { ...defaultAutosave } }, stage: { locked: true, height: 288 } })
+const blankProjectState = () => ({ fixtures: [], groups: [], channelGroups: defaultChannelGroups, effects: [], channels: initialChannels, outputs: { artnet: true, sacn: false, usb: false }, settings: { projectName: 'Untitled', frameRate: 40, bpm: 120, autosave: { ...defaultAutosave } }, stage: { locked: true, height: 288 } })
 
 function makeControlMap(fixtures, groups) {
   const fixtureChannels = (fixture) => fixture.channels.reduce((map, channel) => { if (!channel.name.toLowerCase().includes('fine')) (map[channel.kind] ||= []).push(fixture.address + channel.offset); return map }, {})
@@ -64,7 +64,7 @@ function App() {
   const [outputs, setOutputs] = useState({ artnet: true, sacn: false, usb: false })
   const [outputStatus, setOutputStatus] = useState({ usb: { connected: false, portName: '', error: '', devices: [] } })
   const [protocolStatus, setProtocolStatus] = useState({})
-  const [settings, setSettings] = useState({ projectName: 'Untitled', frameRate: 40, autosave: { ...defaultAutosave } })
+  const [settings, setSettings] = useState({ projectName: 'Untitled', frameRate: 40, bpm: 120, autosave: { ...defaultAutosave } })
   const socketRef = useRef(null)
   const autosaveRef = useRef({ enabled: true, intervalMs: 300000, getDocument: () => null })
 
@@ -118,6 +118,10 @@ function App() {
   }, [connected, fixtures, groups])
 
   useEffect(() => {
+    if (connected) send({ type: 'bpm:set', bpm: settings.bpm || 120 })
+  }, [connected, settings.bpm])
+
+  useEffect(() => {
     autosaveRef.current.enabled = settings.autosave?.enabled ?? true
     autosaveRef.current.intervalMs = Math.max(1, settings.autosave?.intervalMinutes ?? 5) * 60000
   }, [settings.autosave?.enabled, settings.autosave?.intervalMinutes])
@@ -154,7 +158,7 @@ function App() {
     setEffects(state.effects || [])
     setChannels(state.channels?.length === 512 ? state.channels : initialChannels)
     setOutputs({ artnet: true, sacn: false, usb: false, ...(state.outputs || {}) })
-    setSettings({ projectName: document.name || state.settings?.projectName || 'Untitled', frameRate: state.settings?.frameRate || 40, autosave: { ...defaultAutosave, ...(state.settings?.autosave || {}) } })
+    setSettings({ projectName: document.name || state.settings?.projectName || 'Untitled', frameRate: state.settings?.frameRate || 40, bpm: state.settings?.bpm || 120, autosave: { ...defaultAutosave, ...(state.settings?.autosave || {}) } })
     localStorage.setItem('lightcontroller.stageLocked', String(state.stage?.locked ?? true))
     localStorage.setItem('lightcontroller.stageHeight', String(state.stage?.height || 288))
     ;(state.channels || initialChannels).forEach((value, index) => send({ type: 'setChannel', channel: index + 1, value }))
@@ -293,6 +297,7 @@ function SettingsPage({ settings, setSettings, onSave }) {
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="fieldset-label flex-col items-start gap-2"><span>Project name</span><input className="input w-full" value={settings.projectName} onChange={(event) => update('projectName', event.target.value)} /></label>
         <label className="fieldset-label flex-col items-start gap-2"><span>Output frame rate</span><select className="select w-full" value={settings.frameRate} onChange={(event) => update('frameRate', Number(event.target.value))}><option value={30}>30 fps</option><option value={40}>40 fps</option><option value={44}>44 fps</option></select></label>
+        <label className="fieldset-label flex-col items-start gap-2"><span>BPM</span><input type="number" min={20} max={300} className="input w-full" value={settings.bpm} onChange={(event) => update('bpm', Math.max(20, Math.min(300, Number(event.target.value) || 120)))} /></label>
       </div>
       <div className="divider my-6 text-xs text-slate-600">Autosave</div>
       <div className="grid gap-5 sm:grid-cols-3">

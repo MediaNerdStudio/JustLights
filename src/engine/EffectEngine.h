@@ -23,6 +23,7 @@ public:
     void setEffects(const QJsonArray &effects);
     QJsonArray effects() const;
     void blackout();
+    void setBpm(double bpm);
 
 private slots:
     void render();
@@ -52,8 +53,12 @@ private:
     static double pseudoRandom(int seed);
     static QColor colorForEffect(const Effect &effect, double time, int index, int count);
     static QPointF positionForEffect(const Effect &effect, double time, int index, int count);
+    double dimmerValueForEffect(const Effect &effect, double time, int index, int count);
     static QColor paletteColor(const QList<QColor> &colors, double position, double smoothness = 1.0);
     static double curveValue(const QString &type, double position);
+    double curveDimmerValue(const Effect &effect, double time, int index, int count);
+    static double curveMixValue(const QString &type, double t);
+    static double beatMultiplierFactor(const QString &multiplier);
     static void setChannels(QByteArray &frame, const QList<int> &channels, int value, bool highestTakesPrecedence = false);
     static QList<int> parseChannels(const QJsonValue &value);
 
@@ -64,4 +69,5 @@ private:
     QElapsedTimer m_clock;
     QTimer m_timer;
     bool m_blackout = false;
+    double m_bpm = 120.0;
 };
